@@ -1,4 +1,4 @@
-const CACHE_NAME = "ad-learning-v1";
+const CACHE_NAME = "ad-learning-v2";
 
 const APP_FILES = [
   "./",
