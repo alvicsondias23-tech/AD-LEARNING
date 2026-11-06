@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#101114">
+  <title>AD-LEARNING</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <header class="topbar">
+    <div class="brand">AD<span>-</span>LEARNING</div>
+    <div class="profile">A</div>
+  </header>
+
+  <main class="container">
+
+    <section class="welcome">
+      <p class="eyebrow">YOUR PERSONAL LEARNING SPACE</p>
+      <h1>Good evening, <span>Learner.</span></h1>
+      <p class="subtext">Small progress every day creates big results.</p>
+    </section>
+
+    <section class="stats">
+      <div class="stat-card">
+        <span>🔥</span>
+        <h2>0 Days</h2>
+        <p>Learning streak</p>
+      </div>
+      <div class="stat-card">
+        <span>⏱️</span>
+        <h2>0h 00m</h2>
+        <p>Study time today</p>
+      </div>
+    </section>
+
+    <section class="goal">
+      <div class="section-heading">
+        <h3>Daily goal</h3>
+        <span>0 / 3 hours</span>
+      </div>
+      <div class="progress-track">
+        <div class="progress-fill"></div>
+      </div>
+      <p>Start learning to make progress.</p>
+    </section>
+
+    <section class="continue">
+      <div class="section-heading">
+        <h3>Continue learning</h3>
+        <span>View all →</span>
+      </div>
+      <div class="course-card">
+        <div class="course-icon">🎬</div>
+        <div>
+          <h3>Screenwriting</h3>
+          <p>Build stories that captivate audiences.</p>
+          <span class="course-label">START LEARNING →</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="subjects">
+      <div class="section-heading">
+        <h3>Your learning space</h3>
+        <span>Explore →</span>
+      </div>
+      <div class="subject-grid">
+        <div class="subject-card">
+          <span>🎥</span>
+          <h3>VFX & Filmmaking</h3>
+          <p>Visual storytelling</p>
+        </div>
+        <div class="subject-card">
+          <span>✍️</span>
+          <h3>Screenwriting</h3>
+          <p>Stories & scripts</p>
+        </div>
+        <div class="subject-card">
+          <span>🧊</span>
+          <h3>3D Animation</h3>
+          <p>Characters & motion</p>
+        </div>
+        <div class="subject-card">
+          <span>📚</span>
+          <h3>Other Skills</h3>
+          <p>Explore anything</p>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <nav class="bottom-nav">
+    <a class="active" href="#">⌂<small>Home</small></a>
+    <a href="#">▤<small>Learning</small></a>
+    <a href="#">▣<small>Library</small></a>
+    <a href="#">◷<small>Study</small></a>
+    <a href="#">▦<small>Projects</small></a>
+  </nav>
+
+  <script src="script.js"></script>
+</body>
+</html>
