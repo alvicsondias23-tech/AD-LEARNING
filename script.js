@@ -28,9 +28,8 @@ function blankState() {
     },
     planner: {}, 
     trash: [],
-    // NEW FEATURES
     journal: [], 
-    achievements: [], // ['first_course', 'streak_7', etc.]
+    achievements: [], 
     notebooks: [ { id: 'default', title: 'My Notebook', courseId: null, pages: [ { id: 'p1', title: 'Untitled', content: '', pinned: false, favorite: false, updatedAt: Date.now() } ] } ]
   };
 }
@@ -91,6 +90,40 @@ const relDate = (ts) => {
   if (d < day*7) return `${Math.floor(d/day)}d ago`;
   return new Date(ts).toLocaleDateString();
 };
+
+// --- NEW: Image Compressor for Cover Uploads ---
+function compressImage(file, callback) {
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      const MAX_SIZE = 800; // Keep it small for local storage
+      let width = img.width;
+      let height = img.height;
+      
+      if (width > height) {
+        if (width > MAX_SIZE) {
+          height *= MAX_SIZE / width;
+          width = MAX_SIZE;
+        }
+      } else {
+        if (height > MAX_SIZE) {
+          width *= MAX_SIZE / height;
+          height = MAX_SIZE;
+        }
+      }
+      
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, width, height);
+      callback(canvas.toDataURL('image/jpeg', 0.7));
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
 
 // ===== YOUTUBE PARSER =====
 function parseYouTubeUrl(url) {
@@ -222,7 +255,6 @@ function applyTheme() {
   const hex = state.settings.accent || '#8B5CF6';
   document.documentElement.style.setProperty('--accent', hex);
   
-  // Calculate lighter/darker variants for gradients and glows
   let r = parseInt(hex.slice(1,3), 16), g = parseInt(hex.slice(3,5), 16), b = parseInt(hex.slice(5,7), 16);
   document.documentElement.style.setProperty('--accent-dark', `rgb(${Math.max(0,r-20)}, ${Math.max(0,g-20)}, ${Math.max(0,b-20)})`);
   document.documentElement.style.setProperty('--accent-light', `rgb(${Math.min(255,r+20)}, ${Math.min(255,g+20)}, ${Math.min(255,b+20)})`);
@@ -286,7 +318,6 @@ function renderAchievements() {
   const completedVids = state.videos.filter(v => v.completed && !v._deleted).length;
   const streak = state.stats.streak || 0;
   
-  // Progress calculations
   const getProgress = (id) => {
     if (id === 'streak_7') return Math.min(100, (streak / 7) * 100);
     if (id === 'hours_10') return Math.min(100, (totalMins / 600) * 100);
@@ -478,7 +509,6 @@ function renderNotebook() {
     </div>
 
     <div class="nb-layout">
-      <!-- Notebooks List -->
       <div class="nb-sidebar">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
           <h3 style="font-size:0.9em; color:var(--text-1);">My Notebooks</h3>
@@ -489,7 +519,6 @@ function renderNotebook() {
         </div>
       </div>
 
-      <!-- Pages List -->
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
         <h3 style="font-size:0.9em; color:var(--text-1);">Pages in ${esc(nb.title)}</h3>
         <button class="btn btn-sm btn-primary" id="nb-add-page">+ New Page</button>
@@ -498,7 +527,6 @@ function renderNotebook() {
         ${nb.pages.map(p => `<button class="nb-list-item ${p.id === activePageId ? 'active' : ''}" data-page="${p.id}" style="min-width:100px;">${esc(p.title || 'Untitled')}</button>`).join('')}
       </div>
 
-      <!-- Editor -->
       <div class="nb-editor">
         ${page ? `
           <input class="input" id="nb-page-title" value="${esc(page.title)}" placeholder="Page Title" style="margin-bottom:12px; font-weight:700; font-size:1.1em; background:transparent; border:none; border-bottom:1px solid var(--border); border-radius:0; padding-left:0;">
@@ -554,7 +582,6 @@ function renderNotebook() {
     const titleInp = $('#nb-page-title', el);
     const contentEl = $('#nb-page-content', el);
     
-    // Autosave logic
     let saveTimeout;
     const triggerSave = () => {
       clearTimeout(saveTimeout);
@@ -569,10 +596,9 @@ function renderNotebook() {
     titleInp.oninput = triggerSave;
     contentEl.oninput = triggerSave;
 
-    // Rich Text Toolbar
     el.querySelectorAll('.nb-toolbar button').forEach(btn => {
       btn.onmousedown = (e) => {
-        e.preventDefault(); // prevent losing focus in contenteditable
+        e.preventDefault(); 
         const cmd = btn.dataset.cmd;
         const val = btn.dataset.val || null;
         
@@ -770,30 +796,75 @@ function openSubject(subjectId) {
   w.querySelectorAll('[data-open-course]').forEach(b => b.onclick = () => { closeSheet(w); openCourse(b.dataset.openCourse); });
 }
 
+// ===== EDITORS (UPDATED FOR IMAGE UPLOAD) =====
 function openSubjectEditor(subjectId) {
   const existing = subjectId ? getSubject(subjectId) : null;
   let pickedColor = existing?.color || PALETTE[Math.floor(Math.random() * PALETTE.length)];
+  let pickedCover = existing?.coverImage || '';
+
   const html = `
     <div class="sheet-title">${existing ? 'Edit Course' : 'New Course'}</div>
     <div class="field"><label class="field-label">Course name</label><input class="input" id="s-name" placeholder="e.g. Computer Science" value="${esc(existing?.name || '')}"></div>
     <div class="field"><label class="field-label">Accent colour</label><div class="color-palette" id="s-palette">${PALETTE.map(c => `<button class="color-swatch ${c === pickedColor ? 'selected' : ''}" data-c="${c}" style="background:${c}"></button>`).join('')}</div></div>
-    <div class="field"><label class="field-label">Cover image URL (optional)</label><input class="input" id="s-cover" placeholder="https://..." value="${esc(existing?.coverImage || '')}"></div>
+    
+    <div class="field">
+      <label class="field-label">Cover Image</label>
+      <div style="display:flex; gap:10px; align-items:center;">
+        <input type="file" accept="image/*" id="s-cover-file" style="display:none;">
+        <button class="btn btn-ghost" id="s-cover-btn" style="flex:1;">Upload from Gallery</button>
+        <button class="btn btn-danger btn-sm" id="s-cover-clear" style="display:${pickedCover ? 'flex' : 'none'};">Clear</button>
+      </div>
+      <div id="s-cover-preview" style="margin-top:10px; height:100px; border-radius:12px; background-image:url('${esc(pickedCover)}'); background-size:cover; background-position:center; display:${pickedCover ? 'block' : 'none'}; border:1px solid var(--border);"></div>
+    </div>
+
     <div class="sheet-actions">${existing ? `<button class="btn btn-danger" id="s-del">Delete</button>` : ''}<button class="btn btn-ghost" id="s-cancel">Cancel</button><button class="btn btn-primary" id="s-save">Save</button></div>`;
+  
   const w = openSheet(html);
+  
   w.querySelectorAll('[data-c]').forEach(sw => sw.onclick = () => {
     pickedColor = sw.dataset.c;
     w.querySelectorAll('[data-c]').forEach(x => x.classList.toggle('selected', x.dataset.c === pickedColor));
   });
+
+  const fileInp = w.querySelector('#s-cover-file');
+  const preview = w.querySelector('#s-cover-preview');
+  const clearBtn = w.querySelector('#s-cover-clear');
+
+  w.querySelector('#s-cover-btn').onclick = () => fileInp.click();
+  
+  fileInp.onchange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    compressImage(file, (base64) => {
+      pickedCover = base64;
+      preview.style.backgroundImage = `url('${base64}')`;
+      preview.style.display = 'block';
+      clearBtn.style.display = 'flex';
+    });
+  };
+
+  clearBtn.onclick = () => {
+    pickedCover = '';
+    preview.style.backgroundImage = 'none';
+    preview.style.display = 'none';
+    clearBtn.style.display = 'none';
+    fileInp.value = '';
+  };
+
   w.querySelector('#s-cancel').onclick = () => closeSheet(w);
   if (existing) w.querySelector('#s-del').onclick = async () => {
     if (!await confirmBox('Delete Course?', `"${existing.name}" and all content will move to Trash for 30 days.`, 'Delete', true)) return;
     closeSheet(w); archiveSubject(subjectId);
   };
   w.querySelector('#s-save').onclick = () => {
-    const name = w.querySelector('#s-name').value.trim(); const cover = w.querySelector('#s-cover').value.trim();
+    const name = w.querySelector('#s-name').value.trim(); 
     if (!name) return toast('Enter a course name', 'error');
-    if (existing) { existing.name = name; existing.color = pickedColor; existing.coverImage = cover; }
-    else { state.subjects.push({ id: uid(), name, color: pickedColor, coverImage: cover, order: state.subjects.length, createdAt: now() }); }
+    
+    if (existing) { 
+      existing.name = name; existing.color = pickedColor; existing.coverImage = pickedCover; 
+    } else { 
+      state.subjects.push({ id: uid(), name, color: pickedColor, coverImage: pickedCover, order: state.subjects.length, createdAt: now() }); 
+    }
     save(); closeSheet(w); toast(existing ? 'Course updated' : 'Course created', 'success'); renderHome(); renderSubjects();
   };
 }
@@ -802,22 +873,66 @@ function openCourseEditor(courseId, subjectId) {
   const existing = courseId ? getCourse(courseId) : null;
   const sub = getSubject(existing?.subjectId || subjectId);
   if (!sub) return toast('Course not found', 'error');
+  
+  let pickedCover = existing?.coverImage || '';
+
   const html = `
     <div class="sheet-title">${existing ? 'Edit Subject' : `New Subject in ${esc(sub.name)}`}</div>
     <div class="field"><label class="field-label">Subject name</label><input class="input" id="c-name" placeholder="e.g. Python Basics" value="${esc(existing?.name || '')}"></div>
-    <div class="field"><label class="field-label">Cover image URL (optional)</label><input class="input" id="c-cover" placeholder="https://..." value="${esc(existing?.coverImage || '')}"></div>
+    
+    <div class="field">
+      <label class="field-label">Cover Image</label>
+      <div style="display:flex; gap:10px; align-items:center;">
+        <input type="file" accept="image/*" id="c-cover-file" style="display:none;">
+        <button class="btn btn-ghost" id="c-cover-btn" style="flex:1;">Upload from Gallery</button>
+        <button class="btn btn-danger btn-sm" id="c-cover-clear" style="display:${pickedCover ? 'flex' : 'none'};">Clear</button>
+      </div>
+      <div id="c-cover-preview" style="margin-top:10px; height:100px; border-radius:12px; background-image:url('${esc(pickedCover)}'); background-size:cover; background-position:center; display:${pickedCover ? 'block' : 'none'}; border:1px solid var(--border);"></div>
+    </div>
+
     <div class="sheet-actions">${existing ? `<button class="btn btn-danger" id="c-del">Delete</button>` : ''}<button class="btn btn-ghost" id="c-cancel">Cancel</button><button class="btn btn-primary" id="c-save">Save</button></div>`;
+  
   const w = openSheet(html);
+
+  const fileInp = w.querySelector('#c-cover-file');
+  const preview = w.querySelector('#c-cover-preview');
+  const clearBtn = w.querySelector('#c-cover-clear');
+
+  w.querySelector('#c-cover-btn').onclick = () => fileInp.click();
+  
+  fileInp.onchange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    compressImage(file, (base64) => {
+      pickedCover = base64;
+      preview.style.backgroundImage = `url('${base64}')`;
+      preview.style.display = 'block';
+      clearBtn.style.display = 'flex';
+    });
+  };
+
+  clearBtn.onclick = () => {
+    pickedCover = '';
+    preview.style.backgroundImage = 'none';
+    preview.style.display = 'none';
+    clearBtn.style.display = 'none';
+    fileInp.value = '';
+  };
+
   w.querySelector('#c-cancel').onclick = () => closeSheet(w);
   if (existing) w.querySelector('#c-del').onclick = async () => {
     if (!await confirmBox('Delete Subject?', `"${existing.name}" and its videos move to Trash for 30 days.`, 'Delete', true)) return;
     closeSheet(w); archiveCourse(courseId);
   };
   w.querySelector('#c-save').onclick = () => {
-    const name = w.querySelector('#c-name').value.trim(); const cover = w.querySelector('#c-cover').value.trim();
+    const name = w.querySelector('#c-name').value.trim(); 
     if (!name) return toast('Enter a subject name', 'error');
-    if (existing) { existing.name = name; existing.coverImage = cover; }
-    else { state.courses.push({ id: uid(), subjectId: sub.id, name, coverImage: cover, order: state.courses.length, createdAt: now() }); }
+    
+    if (existing) { 
+      existing.name = name; existing.coverImage = pickedCover; 
+    } else { 
+      state.courses.push({ id: uid(), subjectId: sub.id, name, coverImage: pickedCover, order: state.courses.length, createdAt: now() }); 
+    }
     save(); closeSheet(w); toast(existing ? 'Subject updated' : 'Subject created', 'success'); renderHome(); renderSubjects();
   };
 }
@@ -920,11 +1035,10 @@ function renderCourse(courseId) {
   $('#co-edit', el).onclick = () => openCourseEditor(courseId);
   el.querySelectorAll('[data-ct]').forEach(b => b.onclick = () => { courseTab = b.dataset.ct; renderCourse(courseId); });
   
-  // Custom Pointer Events for Drag and Drop (Works on mobile & desktop)
   const items = el.querySelectorAll('.video-item');
   items.forEach(item => {
     item.onclick = (e) => {
-      if (touchDragData.active) return; // ignore click if dragging
+      if (touchDragData.active) return;
       if (e.target.closest('.vi-star')) {
         const v = getVideo(item.dataset.vid);
         v.starred = !v.starred;
@@ -953,18 +1067,13 @@ function renderCourse(courseId) {
       handle.addEventListener('pointermove', (e) => {
         if (!touchDragData.active) return;
         e.preventDefault();
-        
         const y = e.clientY;
-        const containerRect = document.getElementById('video-list-container').getBoundingClientRect();
-        
-        // Find closest element under pointer
         const targetEl = document.elementFromPoint(e.clientX, e.clientY);
         const targetItem = targetEl ? targetEl.closest('.video-item') : null;
         
         if (targetItem && targetItem !== touchDragData.item) {
           const rect = targetItem.getBoundingClientRect();
           const isAfter = y > rect.top + rect.height / 2;
-          
           if (isAfter) {
             targetItem.parentNode.insertBefore(touchDragData.item, targetItem.nextSibling);
           } else {
@@ -978,15 +1087,14 @@ function renderCourse(courseId) {
         touchDragData.active = false;
         touchDragData.item.classList.remove('dragging');
         handle.releasePointerCapture(e.pointerId);
-
-        // Recalculate order and save
+        
         const newOrder = Array.from(document.querySelectorAll('.video-item')).map(el => el.dataset.vid);
         newOrder.forEach((vid, index) => {
           const v = getVideo(vid);
           if (v) v.order = index;
         });
         save();
-        renderCourse(courseId); // re-render to lock in UI
+        renderCourse(courseId);
       });
       
       handle.addEventListener('pointercancel', (e) => {
@@ -1320,7 +1428,6 @@ function startTimerInterval() {
     
     let elapsedMs = timerElapsedMs();
     
-    // Smart Breaks Check
     if (state.timer.smartBreaks.enabled && timer.mode !== 'pomodoro') {
       const studyMins = elapsedMs / 60000;
       if (studyMins > 0 && studyMins % state.timer.smartBreaks.studyMins < 0.2) {
@@ -1875,13 +1982,11 @@ function openSettingsSheet() {
   
   const w = openSheet(html);
   
-  // New Feature Bindings
   w.querySelector('#set-journal').onclick = () => { closeSheet(w); openOverlay('journal-overlay', renderJournal); };
   w.querySelector('#set-achievements').onclick = () => { closeSheet(w); openOverlay('achievements-overlay', renderAchievements); };
   w.querySelector('#set-notebook').onclick = () => { closeSheet(w); openOverlay('notebook-overlay', renderNotebook); };
   w.querySelector('#set-theme').onclick = () => { closeSheet(w); openThemeSettings(); };
 
-  // Standard settings
   w.querySelector('#set-goal').onchange = (e) => { state.timer.dailyGoal = parseInt(e.target.value, 10) || 45; save(); toast('Goal updated', 'success'); };
   w.querySelector('#set-autoplay').onchange = (e) => { state.settings.autoplay = e.target.value === '1'; save(); };
   w.querySelector('#set-export').onclick = () => {
@@ -1902,7 +2007,6 @@ function openSettingsSheet() {
   };
 }
 
-// Helper to open generic overlays
 function openOverlay(id, renderFn) {
   const el = $('#' + id);
   renderFn();
@@ -1973,23 +2077,19 @@ function boot() {
   loadYTApi();
   checkAchievements();
   
-  // Start background active time tracker
   setInterval(() => {
     if (document.visibilityState === 'visible' && !timer.running) {
-      // Award passive time if user is looking at app
       state.stats.dailyStudy[todayKey()] = (state.stats.dailyStudy[todayKey()] || 0) + 0.1;
       state.stats.totalStudyTime = (state.stats.totalStudyTime || 0) + 0.1;
       save();
       checkAchievements();
     }
-  }, 10000); // every 10s
+  }, 10000);
 
-  // Request Notification Permission
   if ("Notification" in window && Notification.permission === "default") {
     Notification.requestPermission();
   }
   
-  // Check reminders every minute
   setInterval(() => {
     if (Notification.permission !== "granted") return;
     const nowObj = new Date();
@@ -2017,7 +2117,6 @@ function boot() {
 }
 
 document.addEventListener('DOMContentLoaded', boot);
-
 
 // ===== AD-LEARNING PWA SERVICE WORKER =====
 if ("serviceWorker" in navigator) {
